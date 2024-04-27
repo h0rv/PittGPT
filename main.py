@@ -1,46 +1,43 @@
-import grequests
-import PittAPI
 import pkgutil
+from inspect import isfunction, signature
+from typing import get_type_hints
 import inspect
-import warnings
+import PittAPI
+import pydantic
 
-warnings.filterwarnings("ignore", category=UserWarning, module="grequests")
+functions = []
 
-
-# Iterate over the modules in the PittAPI package
 for loader, module_name, is_pkg in pkgutil.walk_packages(
     PittAPI.__path__, PittAPI.__name__ + "."
 ):
-    # Import the module
     module = loader.find_module(module_name).load_module(module_name)
-
-    # Print the module name
-    print(f"Module:")
-    print(f"  {module_name}")
-    print(f"  Functions:")
-
-    # Iterate over the members of the module
     for member_name in dir(module):
         member = getattr(module, member_name)
-
-        # Check if the member is a function
         if inspect.isfunction(member) and not member_name.startswith("_"):
-            signature = inspect.signature(member)
-            args = []
-            for param in signature.parameters.values():
-                arg_name = param.name
-                arg_type = (
-                    param.annotation.__name__
-                    if param.annotation != param.empty
-                    else "unknown"
-                )
-                args.append(f"{arg_name}: {arg_type}")
+            functions.append(member)
 
-            docstring = inspect.getdoc(member)
-            if docstring:
-                print(f"    {member_name}  ({', '.join(args)})")
-                print(f"       {docstring}")
-            else:
-                print(f"    {member_name}")
+func_defs = {}
+for func in functions:
+    if not isfunction(func):
+        continue
+    sig = signature(func)
+    type_hints = get_type_hints(func)
 
-    print()
+    field_definitions = {}
+    for param in sig.parameters.values():
+        arg_name = param.name
+        type_hint = type_hints.get(arg_name, pydantic.Field(None))
+        default_value = param.default if param.default is not param.empty else ...
+        field_definitions[arg_name] = (type_hint, default_value)
+
+    # Add function docstring to field definitions
+    field_definitions["description"] = (str, func.__doc__)
+
+    func_defs[func] = field_definitions
+
+# Create a Pydantic model from the field definitions
+ModelClass = pydantic.create_model("PittAPIModel", **{func.__name__: (pydantic.create_model(func.__name__, **fields), ...) for func, fields in func_defs.items()})
+
+# Print the model
+print(ModelClass.schema_json(indent=2))
+
