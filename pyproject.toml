@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "pittgpt"
+version = "0.1.0"
+description = ""
+authors = ["Robby <h0rv@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+PittAPI = "^0.2.6"
+pydantic = "^2.7.1"
+openai = "^1.23.6"
+fastapi = "^0.110.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
